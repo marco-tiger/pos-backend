@@ -2,10 +2,254 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+    provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+    provider = "mysql"
+    url      = env("DATABASE_URL")
+}
+
+enum AccountByEmailStatus {
+    DISABLED
+    UNVERIFIED
+    VERIFIED
+}
+
+enum AmountType {
+    PERCENTAGE
+    AMOUNT
+}
+
+enum PaymentMethodProvider {
+    MANUAL
+    MIDTRANS
+}
+
+enum StockHistoryType {
+    INCREASE
+    DECREASE
+}
+
+enum PointOfSaleStatus {
+    OPEN
+    WAITING_PAYMENT
+    PAID
+    CANCEL
+}
+
+enum PointOfSaleType {
+    DIRECT_AMOUNT
+    PRODUCT
+    PRODUCT_TABLE
+}
+
+model User {
+    id                 Int                  @id @default(autoincrement())
+    created_at         DateTime             @default(now())
+    updated_at         DateTime             @updatedAt
+    uid                String               @unique @db.VarChar(64)
+    email              String               @unique @db.VarChar(64)
+    password           String               @db.VarChar(255)
+    google_id          String               @db.VarChar(64)
+    email_status       AccountByEmailStatus @default(DISABLED)
+    email_enabled      Boolean              @default(false)
+    google_enabled     Boolean              @default(false)
+    business           Business?
+    user_configuration UserConfiguration?
+    product_categories ProductCategory[]
+    products           Product[]
+    product_addons     ProductAddon[]
+    point_of_sales     PointOfSale[]
+    payments           Payment[]
+}
+
+model Business {
+    id             Int      @id @default(autoincrement())
+    created_at     DateTime @default(now())
+    updated_at     DateTime @updatedAt
+    business_name  String   @db.VarChar(64)
+    business_image String   @db.VarChar(255)
+    name           String   @db.VarChar(64)
+    email          String   @db.VarChar(64)
+    phone_number   String   @db.VarChar(32)
+    citizen_id     String   @db.VarChar(32)
+    tax_id         String   @db.VarChar(32)
+    user           User     @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+    user_id        Int      @unique
+}
+
+model UserConfiguration {
+    id                 Int             @id @default(autoincrement())
+    created_at         DateTime        @default(now())
+    updated_at         DateTime        @updatedAt
+    open_at            String          @db.VarChar(5)
+    close_at           String          @db.VarChar(5)
+    service_fee_amount Decimal         @db.Decimal(15, 2)
+    service_fee_type   AmountType
+    tax_fee_amount     Decimal         @db.Decimal(15, 2)
+    payment_methods    PaymentMethod[]
+    user               User            @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+    user_id            Int             @unique
+}
+
+model PaymentMethod {
+    id                    Int                   @id @default(autoincrement())
+    created_at            DateTime              @default(now())
+    updated_at            DateTime              @updatedAt
+    name                  String                @db.VarChar(32)
+    icon                  String                @db.VarChar(255)
+    provider              PaymentMethodProvider
+    user_configuration    UserConfiguration     @relation(fields: [user_configuration_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+    user_configuration_id Int
+}
+
+model ProductCategory {
+    id         Int       @id @default(autoincrement())
+    created_at DateTime  @default(now())
+    updated_at DateTime  @updatedAt
+    name       String    @db.VarChar(64)
+    image      String    @db.VarChar(255)
+    color      String    @db.VarChar(8)
+    products   Product[]
+    user       User      @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+    user_id    Int
+}
+
+model Product {
+    id                      Int                   @id @default(autoincrement())
+    created_at              DateTime              @default(now())
+    updated_at              DateTime              @updatedAt
+    name                    String                @db.VarChar(64)
+    capital_price           Decimal               @db.Decimal(15, 2)
+    sell_price              Decimal               @db.Decimal(15, 2)
+    sold_count              Int                   @default(0)
+    stock                   Int                   @default(0)
+    reserved_stock          Int                   @default(0)
+    available_stock         Int                   @default(0)
+    variant                 String                @db.VarChar(16)
+    product_images          ProductImage[]
+    product_category        ProductCategory       @relation(fields: [product_category_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+    product_category_id     Int
+    product_stock_histories ProductStockHistory[]
+    product_addons          ProductAddon[]        @relation(name: "ProductsWithAddons")
+    transaction_items       TransactionItem[]
+    user                    User                  @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+    user_id                 Int
+}
+
+model ProductImage {
+    id         Int      @id @default(autoincrement())
+    created_at DateTime @default(now())
+    updated_at DateTime @updatedAt
+    url        String   @db.VarChar(255)
+    is_default Boolean  @default(false)
+    product    Product  @relation(fields: [product_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+    product_id Int
+}
+
+model ProductAddon {
+    id                      Int                    @id @default(autoincrement())
+    created_at              DateTime               @default(now())
+    updated_at              DateTime               @updatedAt
+    name                    String                 @db.VarChar(64)
+    capital_price           Decimal                @db.Decimal(15, 2)
+    sell_price              Decimal                @db.Decimal(15, 2)
+    sold_count              Int                    @default(0)
+    stock                   Int                    @default(0)
+    reserved_stock          Int                    @default(0)
+    available_stock         Int                    @default(0)
+    image                   String                 @db.VarChar(255)
+    product_stock_histories ProductStockHistory[]
+    products                Product[]              @relation(name: "ProductsWithAddons")
+    transaction_item_addons TransactionItemAddon[]
+    user                    User                   @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+    user_id                 Int
+}
+
+model ProductStockHistory {
+    id               Int              @id @default(autoincrement())
+    created_at       DateTime         @default(now())
+    updated_at       DateTime         @updatedAt
+    quantity         Int
+    type             StockHistoryType
+    previous_stock   Int
+    current_stock    Int
+    product          Product          @relation(fields: [product_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+    product_id       Int
+    product_addon    ProductAddon     @relation(fields: [product_addon_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+    product_addon_id Int
+}
+
+model PointOfSale {
+    id                     Int               @id @default(autoincrement())
+    created_at             DateTime          @default(now())
+    updated_at             DateTime          @updatedAt
+    transaction_id         String            @db.VarChar(32)
+    transactioin_number    String            @db.VarChar(255)
+    order_amount           Decimal           @db.Decimal(15, 2)
+    discount_amount        Decimal           @db.Decimal(15, 2)
+    discount_percentage    Decimal           @db.Decimal(15, 2)
+    discount_type          AmountType
+    service_fee_amount     Decimal           @db.Decimal(15, 2)
+    service_fee_percentage Decimal           @db.Decimal(15, 2)
+    service_fee_type       AmountType
+    tax_amount             Decimal           @db.Decimal(15, 2)
+    tax_percentage         Decimal           @db.Decimal(15, 2)
+    total_amount           Decimal           @db.Decimal(15, 2)
+    notes                  String            @db.VarChar(64)
+    shipping_address       String            @db.VarChar(255)
+    status                 PointOfSaleStatus @default(OPEN)
+    type                   PointOfSaleType
+    payment_method         String            @db.VarChar(32)
+    transaction_items      TransactionItem[]
+    payments               Payment[]
+    user                   User              @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+    user_id                Int
+}
+
+model TransactionItem {
+    id                          Int                    @id @default(autoincrement())
+    created_at                  DateTime               @default(now())
+    updated_at                  DateTime               @updatedAt
+    name                        String                 @db.VarChar(64)
+    quantity                    Int
+    product_price_amount        Decimal                @db.Decimal(15, 2)
+    price_amount                Decimal                @db.Decimal(15, 2)
+    discount_amount             Decimal                @db.Decimal(15, 2)
+    discount_percentage         Decimal                @db.Decimal(15, 2)
+    discount_type               AmountType
+    price_after_discount_amount Decimal                @db.Decimal(15, 2)
+    total_amount                Decimal                @db.Decimal(15, 2)
+    notes                       String                 @db.VarChar(64)
+    transaction_item_addons     TransactionItemAddon[]
+    product                     Product                @relation(fields: [product_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+    product_id                  Int
+    point_of_sale               PointOfSale            @relation(fields: [point_of_sale_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+    point_of_sale_id            Int
+}
+
+model TransactionItemAddon {
+    id                  Int             @id @default(autoincrement())
+    created_at          DateTime        @default(now())
+    updated_at          DateTime        @updatedAt
+    name                String          @db.VarChar(64)
+    quantity            Int
+    addon_price_amount  Decimal         @db.Decimal(15, 2)
+    transaction_item    TransactionItem @relation(fields: [transaction_item_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+    transaction_item_id Int
+    product_addon       ProductAddon    @relation(fields: [product_addon_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+    product_addon_id    Int
+}
+
+model Payment {
+    id               Int                   @id @default(autoincrement())
+    created_at       DateTime              @default(now())
+    updated_at       DateTime              @updatedAt
+    total_amount     Decimal               @db.Decimal(15, 2)
+    payment_source   PaymentMethodProvider
+    point_of_sale    PointOfSale           @relation(fields: [point_of_sale_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+    point_of_sale_id Int
+    user             User                  @relation(fields: [user_id], references: [id], onDelete: Restrict, onUpdate: Cascade)
+    user_id          Int
 }

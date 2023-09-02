@@ -15,7 +15,7 @@ class Env
         this.port = Number(this.ValidateEnv(process.env.PORT));
     }
 
-    public static setup()
+    public static get()
     {
         if (!Env.instance)
         {
